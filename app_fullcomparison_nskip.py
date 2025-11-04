@@ -1,4 +1,4 @@
-import random, time, math
+import os, random, time, csv, datetime
 from copy import deepcopy
 
 def selection_sort(arr):
@@ -73,29 +73,48 @@ def heap_sort(arr):
     return a
 
 ALGORITHMS = {
-    'selection': selection_sort,
-    'bubble': bubble_sort,
-    'merge': merge_sort,
-    'quick': quick_sort,
-    'heap': heap_sort,
+    'Selection Sort': selection_sort,
+    'Bubble Sort': bubble_sort,
+    'Quick Sort': quick_sort,
+    'Merge Sort': merge_sort,
+    'Heap Sort': heap_sort,
 }
 
 def time_it(fn, data):
     start = time.perf_counter()
     out = fn(data)
     end = time.perf_counter()
-    return end-start, out
+    return (end-start)*1000.0, out  # ms
 
 def validate_sorted(arr):
     return all(arr[i] <= arr[i+1] for i in range(len(arr)-1))
 
-def run_all():
-    sizes = [100, 500, 1000]
-    trials = 3
+def load_or_make_csv(path, n):
+    if os.path.exists(path):
+        with open(path, newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            data = [int(row[0]) for row in reader]
+            return data
+    # create file
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['angka'])
+        data = [random.randint(0, n*10) for _ in range(n)]
+        for v in data:
+            writer.writerow([v])
+    return data
+
+def run_all(write_results=True):
+    sizes = [1000, 10000, 50000]
+    trials = 2
     results = []
+    os.makedirs('results', exist_ok=True)
     for n in sizes:
         print(f"\nDataset size: {n}")
-        data = [random.randint(0, n*10) for _ in range(n)]
+        csv_path = os.path.join('Data', f'data_{n}_entries.csv')
+        data = load_or_make_csv(csv_path, n)
         for name, fn in ALGORITHMS.items():
             total = 0.0
             ok = True
@@ -106,15 +125,17 @@ def run_all():
                 if not validate_sorted(out):
                     ok = False
             avg = total / trials
-            print(f"{name:10} | avg {avg:.6f}s | valid: {ok}")
-            results.append((n, name, avg, ok))
-    # write simple report
-    import datetime
-    fn = f"results-report-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-    with open(fn, 'w') as f:
-        for r in results:
-            f.write(f"size={r[0]}\talg={r[1]}\tavg={r[2]:.6f}\tvalid={r[3]}\n")
-    print(f"\nReport written to {fn}")
+            print(f"{name:15} | avg {avg:.2f} ms | valid: {ok}")
+            results.append({'data_size': n, 'algorithm': name, 'time_ms': avg, 'valid': ok})
+    if write_results:
+        fn = os.path.join('results', f'sorting_comparison_results_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.csv')
+        with open(fn, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['data_size','algorithm','time_ms','valid'])
+            for r in results:
+                writer.writerow([r['data_size'], r['algorithm'], f"{r['time_ms']:.2f}", r['valid']])
+        print(f"\nReport written to {fn}")
+    return results
 
 if __name__ == '__main__':
     run_all()
